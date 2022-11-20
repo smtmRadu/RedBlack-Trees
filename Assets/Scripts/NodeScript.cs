@@ -1,7 +1,9 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using TMPro;
 using Unity.VisualScripting;
+using UnityEditor.SceneManagement;
 using UnityEngine;
 
 public class NodeScript : MonoBehaviour
@@ -21,6 +23,9 @@ public class NodeScript : MonoBehaviour
     [SerializeField] private Material redMaterial;
     [SerializeField] private Material blackMaterial;
     [SerializeField] private Material greenMaterial;
+
+    public Shader shader;
+    Color colorAfterLerping;
     
     public void Init(int k)
     {
@@ -30,7 +35,7 @@ public class NodeScript : MonoBehaviour
         leftChild = null;
         rightChild = null;
         SetKey(k);
-        SetColor(Color.red);
+        SetColorTo(Color.red);
     }
     public bool IsLeftChild()
     {
@@ -51,27 +56,81 @@ public class NodeScript : MonoBehaviour
     }
     public int GetKey ()
     { return key; }
-    public void SetColor(Color col)
+
+    public void SetColorTo(Color col)
     {
         if (col == Color.red)            
-            GetComponent<MeshRenderer>().material = redMaterial;
+            GetComponent<MeshRenderer>().sharedMaterial = redMaterial;
         else if (col == Color.black)
-            GetComponent<MeshRenderer>().material = blackMaterial;
+            GetComponent<MeshRenderer>().sharedMaterial = blackMaterial;
         else if (col == Color.green)
-            GetComponent<MeshRenderer>().material = greenMaterial;
+            GetComponent<MeshRenderer>().sharedMaterial = greenMaterial;
+    }
+    public void LerpColorTo(Color col, float smoothness = 0.75f)
+    {
+        colorAfterLerping = col;
+        StartCoroutine(LerpingColor(col, smoothness));
+    }
+    IEnumerator LerpingColor(Color col, float smoothness)
+    {
+        //here the shared material might be a non valid material
+        // so check if is valid, if not, set the from material using  the colorafterLerping
+        Material currentMaterial = GetComponent<MeshRenderer>().sharedMaterial;
+       
+        Material from = currentMaterial;
+        if (!IsRedOrBlack(currentMaterial))
+            from = GetMaterialOfColor(colorAfterLerping);
+
+        Material to = GetMaterialOfColor(col);
+
+        //Use lerpable material to transitionate smoothly between a color and another
+        Material lerpableMaterial = new Material(shader);
+        lerpableMaterial.color = from.color;
+        GetComponent<MeshRenderer>().sharedMaterial = lerpableMaterial;
+        while(lerpableMaterial.color != to.color)
+        {
+            lerpableMaterial.color = UnityEngine.Color.Lerp(lerpableMaterial.color, to.color, Time.deltaTime * smoothness);
+            yield return new WaitForSeconds(0.001f);
+        }
+        colorAfterLerping = Color.UNKNOWN;
+
+        yield return null;
     }
     public Color GetColor()
     {
-        if (GetComponent<MeshRenderer>().sharedMaterial == redMaterial)
+        Material sharedMaterial = GetComponent<MeshRenderer>().sharedMaterial;
+
+        if (sharedMaterial.color == redMaterial.color)
             return Color.red;
 
-        if (GetComponent<MeshRenderer>().sharedMaterial == blackMaterial)
+        if (sharedMaterial.color == blackMaterial.color)
             return Color.black;
 
-        if (GetComponent<MeshRenderer>().sharedMaterial == greenMaterial)
+        if (sharedMaterial.color == greenMaterial.color)
             return Color.green;
 
-        return Color.UNKNOWN;
+        //case while is lerping
+        return colorAfterLerping;
+
+    }
+    Material GetMaterialOfColor(Color col)
+    {
+        if (col == Color.red) return redMaterial;
+
+        if(col == Color.black) return blackMaterial;
+
+        if(col == Color.green) return greenMaterial;
+
+        return null;
+    }
+    bool IsRedOrBlack(Material mat)
+    {
+        if (mat.color == redMaterial.color)
+            return true;
+        if(mat.color == blackMaterial.color) 
+            return true;
+
+        return false;
     }
 }
 public enum Color
