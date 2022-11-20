@@ -21,16 +21,18 @@ public class RedBlackTree : MonoBehaviour
     [SerializeField] Camera camera;
     [SerializeField] TMP_InputField inputField;
     [SerializeField] TMP_Text warningText;
-    [SerializeField] Slider hortizontalSlider;
+    [SerializeField] Slider horizontalSlider;
     [SerializeField] Slider verticalSlider;
     [SerializeField] TMP_Text statistics;
  
     //error 224, it says rooot is null but it is not
     public void InsertRandomNode()
     {
+        int k = UnityEngine.Random.Range(0, 100);
+        warningText.text = k.ToString() + " inserted (random).";
         GameObject newNode = Instantiate(NodePrefab, this.transform);
         NodeScript script = newNode.GetComponent<NodeScript>();
-        script.Init(UnityEngine.Random.Range(0, 100));
+        script.Init(k);
         Insert(script);
         
     }
@@ -100,7 +102,7 @@ public class RedBlackTree : MonoBehaviour
 
         z.leftChild = null;
         z.rightChild = null;
-        z.SetColorTo(Color.red);
+        z.SetColor(Color.red);
             InsertFixup(z);
         //set root position
     }
@@ -140,9 +142,9 @@ public class RedBlackTree : MonoBehaviour
                        
                         if (y != null && y.GetColor() == Color.red)
                         {
-                            z.parent.LerpColorTo(Color.black);
-                            y.LerpColorTo(Color.black);
-                            z.parent.parent.LerpColorTo(Color.red);
+                            z.parent.SetColor(Color.black);
+                            y.SetColor(Color.black);
+                            z.parent.parent.SetColor(Color.red);
                             z = z.parent.parent;
                         }
                         else
@@ -153,24 +155,24 @@ public class RedBlackTree : MonoBehaviour
                                 z = z.parent;
                                 LeftRotate(z);
                             }
-                            z.parent.LerpColorTo(Color.black);
-                            z.parent.parent.LerpColorTo(Color.red);
+                            z.parent.SetColor(Color.black);
+                            z.parent.parent.SetColor(Color.red);
                             RightRotate(z.parent.parent);
                         }
                     }
                     else
                     {
-                         NodeScript y = null;
-                         if (hasGrandParent != null)
-                             y = z.parent.parent.leftChild;
-                         if (y != null && y.GetColor() == Color.red)
+                          NodeScript y = null;
+                          if (hasGrandParent != null)
+                              y = z.parent.parent.leftChild;
+                          if (y != null && y.GetColor() == Color.red)
                         {
-                            z.parent.LerpColorTo(Color.black);
-                            y.LerpColorTo(Color.black);
-                            z.parent.parent.LerpColorTo(Color.red);
+                            z.parent.SetColor(Color.black);
+                            y.SetColor(Color.black);
+                            z.parent.parent.SetColor(Color.red);
                             z = z.parent.parent;
                         }
-                        else
+                          else
                         {
                             var compareto = z.parent == null?null:z.parent.leftChild;
                             if (z == compareto)
@@ -178,9 +180,9 @@ public class RedBlackTree : MonoBehaviour
                                 z = z.parent;
                                 RightRotate(z);
                             }
-                            z.parent.LerpColorTo(Color.black);
+                            z.parent.SetColor(Color.black);
 
-                            z.parent.parent.LerpColorTo(Color.red);
+                            z.parent.parent.SetColor(Color.red);
                             LeftRotate(z.parent.parent);
                         }
                     }
@@ -196,7 +198,7 @@ public class RedBlackTree : MonoBehaviour
            // UnityEngine.Debug.Log("[InsertFix]Node: " + z.GetKey() + " -> Exit line: " + line);
 
         }
-        root.LerpColorTo(Color.black);
+        root.SetColor(Color.black);
     }
     void DeleteFixup(NodeScript x)
     {
@@ -207,28 +209,28 @@ public class RedBlackTree : MonoBehaviour
                 NodeScript w = x.parent.rightChild;
                 if(w.GetColor() == Color.red)
                 {
-                    w.SetColorTo(Color.black);
-                    x.parent.SetColorTo(Color.red);
+                    w.SetColor(Color.black);
+                    x.parent.SetColor(Color.red);
                     LeftRotate(x.parent);
                     w = x.parent.rightChild;
                 }
                 if(w.leftChild.GetColor() == Color.black && w.rightChild.GetColor() == Color.black)
                 {
-                    w.SetColorTo(Color.red);
+                    w.SetColor(Color.red);
                     x = x.parent;
                 }
                 else 
                 {
                     if (w.rightChild.GetColor() == Color.black)
                     {
-                        w.leftChild.SetColorTo(Color.black);
-                        w.SetColorTo(Color.red);
+                        w.leftChild.SetColor(Color.black);
+                        w.SetColor(Color.red);
                         RightRotate(w);
                         w = x.parent.rightChild;
                     }
-                    w.SetColorTo(x.parent.GetColor());
-                    x.parent.SetColorTo(Color.black);
-                    w.rightChild.SetColorTo(Color.black);
+                    w.SetColor(x.parent.GetColor());
+                    x.parent.SetColor(Color.black);
+                    w.rightChild.SetColor(Color.black);
                     LeftRotate(x.parent);
                     x = root;
                 }
@@ -364,6 +366,8 @@ public class RedBlackTree : MonoBehaviour
         root = null;
         totalNodes = 0;
         camera.orthographicSize = 6f;
+        verticalSlider.value = 1f;
+        horizontalSlider.value = 10f;
     }
 
     #endregion
@@ -434,8 +438,8 @@ public class RedBlackTree : MonoBehaviour
     }    
     public void ChangeHorizontalDistance()
     {
-        camera.orthographicSize += (hortizontalSlider.value - horizontalDistance)*0.5f;
-        horizontalDistance = hortizontalSlider.value;
+        camera.orthographicSize += (horizontalSlider.value - horizontalDistance)*0.5f;
+        horizontalDistance = horizontalSlider.value;
     }
     public void ChangeVerticalDistance()
     {

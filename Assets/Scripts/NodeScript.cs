@@ -35,7 +35,7 @@ public class NodeScript : MonoBehaviour
         leftChild = null;
         rightChild = null;
         SetKey(k);
-        SetColorTo(Color.red);
+        SetColor(Color.red);
     }
     public bool IsLeftChild()
     {
@@ -57,16 +57,21 @@ public class NodeScript : MonoBehaviour
     public int GetKey ()
     { return key; }
 
-    public void SetColorTo(Color col)
+    public void SetColor(Color col)
     {
-        if (col == Color.red)            
+        //SetColorTo(col);
+        LerpColorTo(col);
+    }
+    void SetColorTo(Color col)
+    {
+        if (col == Color.red)
             GetComponent<MeshRenderer>().sharedMaterial = redMaterial;
         else if (col == Color.black)
             GetComponent<MeshRenderer>().sharedMaterial = blackMaterial;
         else if (col == Color.green)
             GetComponent<MeshRenderer>().sharedMaterial = greenMaterial;
     }
-    public void LerpColorTo(Color col, float smoothness = 0.75f)
+    void LerpColorTo(Color col, float smoothness = 0.75f)
     {
         colorAfterLerping = col;
         StartCoroutine(LerpingColor(col, smoothness));
