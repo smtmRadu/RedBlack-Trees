@@ -27,6 +27,15 @@ public class NodeScript : MonoBehaviour
     public Shader shader;
     Color colorAfterLerping;
     
+    public NodeScript(bool isNil)
+    {
+        if(isNil)
+        {
+            colorAfterLerping = Color.black;
+            leftChild = null;
+            rightChild = null;
+        }
+    }
     public void Init(int k)
     {
         keyText = transform.GetChild(0).GetComponent<TMP_Text>();
@@ -104,7 +113,8 @@ public class NodeScript : MonoBehaviour
     public Color GetColor()
     {
         Material sharedMaterial = GetComponent<MeshRenderer>().sharedMaterial;
-
+        if (sharedMaterial == null)
+            return colorAfterLerping;
         if (sharedMaterial.color == redMaterial.color)
             return Color.red;
 

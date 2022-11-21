@@ -10,11 +10,18 @@ using static UnityEditor.PlayerSettings;
 
 public class RedBlackTree : MonoBehaviour
 {
+    //modification on transplant(last if)
+    //132 one more condition inside if
+    //138 one more if
+
+    //bad positioning when adding more nodes of the same key
     [SerializeField] NodeScript root = null;
     [SerializeField] int totalNodes = 0;
     [SerializeField] float horizontalDistance = 10f;
     [SerializeField] float verticalDistance = 1f;
     [SerializeField] float smoothSpeed = 0.5f;
+
+    NodeScript Nil = new NodeScript(true);
 
     [Header("Attributes")]
     [SerializeField] GameObject NodePrefab;
@@ -76,7 +83,7 @@ public class RedBlackTree : MonoBehaviour
         }
         
         Delete(node);
-        GameObject.Destroy(node.gameObject);
+        //GameObject.Destroy(node.gameObject);
         warningText.text = key.ToString() + " deleted.";
     }
     //Tree operations
@@ -106,25 +113,66 @@ public class RedBlackTree : MonoBehaviour
             InsertFixup(z);
         //set root position
     }
-    NodeScript Delete(NodeScript z)
+    void Delete(NodeScript z)
     {
-        NodeScript y = (z.leftChild == null || z.rightChild == null) ? z : GetSuccessor(z);
-        NodeScript x = y.leftChild != null ? y.leftChild : y.rightChild;
-        x.parent = y.parent;
-        if (y.parent == null)
-            root = x;
-        else if (y == y.parent.leftChild)
-                y.parent.leftChild = x;
-        else
-            y.parent.rightChild = z;
-
-        if (y != z)
+        NodeScript y = z;
+        NodeScript x;
+        Color yOriginalColor = y.GetColor();
+        if(z.leftChild == null)
         {
-            z.SetKey(y.GetKey());
+            x = z.rightChild;
+            Transplant(z, z.rightChild);
         }
-        if (y.GetColor() == Color.black)
+        else if( z.rightChild == null)
+        {
+            x = z.leftChild;
+            Transplant(z, z.leftChild);
+        }
+        else
+        {
+            y = GetMinimum(z.rightChild);
+            yOriginalColor = y.GetColor();
+            x = y.rightChild;
+            if (x != null && y.parent == z) //modification here
+                x.parent = y;
+            else
+            {
+                Transplant(y, y.rightChild);
+                y.rightChild = z.rightChild;
+                if(y.rightChild != null)  //modification here
+                    y.rightChild.parent = y;
+            }
+
+            Transplant(z, y);
+            y.leftChild = z.leftChild;
+            y.leftChild.parent = y;
+            y.SetColor(z.GetColor());
+        }
+        
+        if (yOriginalColor == Color.black)
             DeleteFixup(x);
-        return y;
+
+        Destroy(z.gameObject);
+
+        /*
+                NodeScript y = (z.leftChild == null || z.rightChild == null) ? z : GetSuccessor(z);
+                NodeScript x = y.leftChild != null ? y.leftChild : y.rightChild;
+                if(x!= null)
+                    x.parent = y.parent;
+                if (y.parent == null)
+                    root = x;
+                else if (y == y.parent.leftChild)
+                    y.parent.leftChild = x;
+                else
+                    y.parent.rightChild = z;
+
+                if (y != z)
+                {
+                    z.SetKey(y.GetKey());
+                }
+                if (y.GetColor() == Color.black)
+                    DeleteFixup(x);
+                return y;*/
     }
 
     void InsertFixup(NodeScript z)
@@ -202,24 +250,27 @@ public class RedBlackTree : MonoBehaviour
     }
     void DeleteFixup(NodeScript x)
     {
-        while(x != root && x.GetColor() == Color.black)
+        if (x == null)
+            return;
+        while (x != root && (x == null || x.GetColor() == Color.black))
         {
-            if(x==x.parent.leftChild)
+            if (x == null || x == x.parent.leftChild)
             {
                 NodeScript w = x.parent.rightChild;
-                if(w.GetColor() == Color.red)
+                if (w.GetColor() == Color.red)
                 {
                     w.SetColor(Color.black);
                     x.parent.SetColor(Color.red);
                     LeftRotate(x.parent);
                     w = x.parent.rightChild;
                 }
-                if(w.leftChild.GetColor() == Color.black && w.rightChild.GetColor() == Color.black)
+                if (w.leftChild.GetColor() == Color.black && w.rightChild.GetColor() == Color.black)
                 {
                     w.SetColor(Color.red);
-                    x = x.parent;
+                    if(x!=null)
+                        x = x.parent;
                 }
-                else 
+                else
                 {
                     if (w.rightChild.GetColor() == Color.black)
                     {
@@ -232,14 +283,45 @@ public class RedBlackTree : MonoBehaviour
                     x.parent.SetColor(Color.black);
                     w.rightChild.SetColor(Color.black);
                     LeftRotate(x.parent);
+                    if(x!=null)
                     x = root;
                 }
             }
             else
             {
-                //swapped left with right
+                NodeScript w = x.parent.leftChild;
+                if (w.GetColor() == Color.red)
+                {
+                    w.SetColor(Color.black);
+                    x.parent.SetColor(Color.red);
+                    RightRotate(x.parent);
+                    w = x.parent.leftChild;
+                }
+                if (w.rightChild.GetColor() == Color.black && w.leftChild.GetColor() == Color.black)
+                {
+                    w.SetColor(Color.red);
+                    x = x.parent;
+                }
+                else
+                {
+                    if (w.leftChild.GetColor() == Color.black)
+                    {
+                        w.rightChild.SetColor(Color.black);
+                        w.SetColor(Color.red);
+                        LeftRotate(w);
+                        w = x.parent.leftChild;
+                    }
+                    w.SetColor(x.parent.GetColor());
+                    x.parent.SetColor(Color.black);
+                    w.leftChild.SetColor(Color.black);
+                    RightRotate(x.parent);
+                    x = root;
+                }
             }
+
+            
         }
+        x.SetColor(Color.black);
     }
 
     void LeftRotate(NodeScript x)
@@ -287,9 +369,6 @@ public class RedBlackTree : MonoBehaviour
 
     NodeScript GetSuccessor(NodeScript x)
     {
-        if (x == null)
-            return x;
-
         if (x.rightChild != null)
             return GetMinimum(x.rightChild);
 
@@ -338,11 +417,22 @@ public class RedBlackTree : MonoBehaviour
             if (node.GetKey() == k)
                 return node;
             else if (node.GetKey() > k)
-                node = node.rightChild;
-            else if(node.GetKey() < k)
                 node = node.leftChild;
+            else if(node.GetKey() < k)
+                node = node.rightChild;
         }
         return null;
+    }
+    void Transplant(NodeScript u, NodeScript v)
+    {
+        if (u.parent == null)
+            root = v;
+        else if (u == u.parent.leftChild)
+            u.parent.leftChild = v;
+        else
+            u.parent.rightChild = v;
+        if(v != null)
+            v.parent = u.parent;
     }
     int GetBlackHeight()
     {
@@ -365,9 +455,9 @@ public class RedBlackTree : MonoBehaviour
         }
         root = null;
         totalNodes = 0;
-        camera.orthographicSize = 6f;
         verticalSlider.value = 1f;
         horizontalSlider.value = 10f;
+        camera.orthographicSize = 6f;
     }
 
     #endregion
@@ -407,7 +497,7 @@ public class RedBlackTree : MonoBehaviour
     }
     void MakeStatistic()
     {
-        string stat = "";
+        string stat = "Developed by kbRadu\n";
         stat += "Total nodes: " + totalNodes;
         stat += "\nBlack height: " + GetBlackHeight().ToString();
         statistics.text = stat;
