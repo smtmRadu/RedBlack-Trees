@@ -2,8 +2,6 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using TMPro;
-using Unity.VisualScripting;
-using UnityEditor.SceneManagement;
 using UnityEngine;
 
 public class NodeScript : MonoBehaviour
@@ -13,7 +11,7 @@ public class NodeScript : MonoBehaviour
     public NodeScript parent = null;
     public NodeScript leftChild = null;
     public NodeScript rightChild = null;
-
+    public bool isNil = false;
     [Header("GameObject Properties")]
     public Vector3 rbNodeLocalPosition; //The object is moved to it's newest position using this location
     //object local position is separate
@@ -25,24 +23,10 @@ public class NodeScript : MonoBehaviour
     [SerializeField] private Material greenMaterial;
 
     public Shader shader;
-    Color colorAfterLerping;
-    
-    public NodeScript(bool isNil)
-    {
-        if(isNil)
-        {
-            colorAfterLerping = Color.black;
-            leftChild = null;
-            rightChild = null;
-        }
-    }
+    Color colorAfterLerping = Color.black;
     public void Init(int k)
     {
         keyText = transform.GetChild(0).GetComponent<TMP_Text>();
-
-        parent = null;
-        leftChild = null;
-        rightChild = null;
         SetKey(k);
         SetColor(Color.red);
     }
@@ -66,10 +50,10 @@ public class NodeScript : MonoBehaviour
     public int GetKey ()
     { return key; }
 
-    public void SetColor(Color col)
+    public void SetColor(Color col, float smoothness = 0.75f)
     {
         //SetColorTo(col);
-        LerpColorTo(col);
+        LerpColorTo(col, smoothness);
     }
     void SetColorTo(Color col)
     {
@@ -112,9 +96,11 @@ public class NodeScript : MonoBehaviour
     }
     public Color GetColor()
     {
-        Material sharedMaterial = GetComponent<MeshRenderer>().sharedMaterial;
-        if (sharedMaterial == null)
+        if (isNil == true)
             return colorAfterLerping;
+
+        Material sharedMaterial = GetComponent<MeshRenderer>().sharedMaterial;
+        
         if (sharedMaterial.color == redMaterial.color)
             return Color.red;
 

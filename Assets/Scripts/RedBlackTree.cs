@@ -1,12 +1,8 @@
-using Palmmedia.ReportGenerator.Core.Parser.Analysis;
-using System;
 using System.Collections;
-using System.Diagnostics;
 using TMPro;
 using Unity.VisualScripting;
 using UnityEngine;
 using UnityEngine.UI;
-using static UnityEditor.PlayerSettings;
 
 public class RedBlackTree : MonoBehaviour
 {
@@ -15,13 +11,13 @@ public class RedBlackTree : MonoBehaviour
     //138 one more if
 
     //bad positioning when adding more nodes of the same key
-    [SerializeField] NodeScript root = null;
+    [SerializeField] NodeScript root;
     [SerializeField] int totalNodes = 0;
     [SerializeField] float horizontalDistance = 10f;
     [SerializeField] float verticalDistance = 1f;
     [SerializeField] float smoothSpeed = 0.5f;
 
-    NodeScript Nil = new NodeScript(true);
+    public NodeScript Nil;
 
     [Header("Attributes")]
     [SerializeField] GameObject NodePrefab;
@@ -31,70 +27,130 @@ public class RedBlackTree : MonoBehaviour
     [SerializeField] Slider horizontalSlider;
     [SerializeField] Slider verticalSlider;
     [SerializeField] TMP_Text statistics;
- 
-    //error 224, it says rooot is null but it is not
+    [SerializeField] Toggle showNILL;
+    bool nillHidden;
+    int zeroMask = int.MaxValue;
+    [SerializeField]LayerMask hidNillMask;
+
+
+    bool isSearching = false;
+    private void Awake()
+    {
+        warningText.text = "";
+        root = Nil;
+    }
     public void InsertRandomNode()
     {
+        ResetWarningText();
+
         int k = UnityEngine.Random.Range(0, 100);
-        warningText.text = k.ToString() + " inserted (random).";
+        
         GameObject newNode = Instantiate(NodePrefab, this.transform);
         NodeScript script = newNode.GetComponent<NodeScript>();
         script.Init(k);
+
+        warningText.text += k.ToString() + " inserted (random).\n Steps:\n";
         Insert(script);
         
+
     }
     public void InsertNode()
     {
+        ResetWarningText();
         int key = 0;
         try
         {
             key = int.Parse(inputField.text);
-            inputField.text = "";
-            warningText.text = key.ToString() + " inserted.";
+            inputField.text = "";    
         }catch {
-            warningText.text = "Error: Invalid input!";
+            warningText.text = "Error: Invalid input!\n";
                 return; 
         }
         
         GameObject newNode = Instantiate(NodePrefab, this.transform);
         NodeScript script = newNode.GetComponent<NodeScript>();
         script.Init(key);
+        warningText.text += key.ToString() + " inserted.\n Steps:\n";
         Insert(script);
+        
     }
     public void DeleteNode()
     {
+        ResetWarningText();
         int key = 0;
         try
         {
             key = int.Parse(inputField.text);
             inputField.text = "";
+            warningText.text = key.ToString() + " deleted.\nSteps:\n";
         }
         catch
         {
-            warningText.text = "Error: Invalid input!";
+            warningText.text = "Error: Invalid input!\n";
             return;
         }
         NodeScript node = Search(key);
         if(node == null)
         {
-            warningText.text = key.ToString() + " not found.";
+            warningText.text = key.ToString() + " not found.\n";
             return;
 
         }
         
         Delete(node);
         //GameObject.Destroy(node.gameObject);
-        warningText.text = key.ToString() + " deleted.";
+       
+    }
+    public void SearchNode()
+    {
+        ResetWarningText();
+        if (isSearching)
+            return;
+        //get key
+        int key = 0;
+        try
+        {
+            key = int.Parse(inputField.text);
+        }
+        catch
+        {
+            warningText.text = "Error: Invalid input!\n";
+            return;
+        }
+        if (root == Nil)
+            return;
+
+        isSearching = true;
+        StartCoroutine(SearchVisualization(key));
+    }
+    public void MinNode()
+    {
+        if (isSearching)
+            return;
+        isSearching = true;
+        StartCoroutine(MinVisualization());
+    }
+    public void MaxNode()
+    {
+        if (isSearching)
+            return;
+        StartCoroutine(MaxVisualization());
+
     }
     //Tree operations
     #region tree operations
     void Insert(NodeScript z)
     {
         totalNodes++;
-        camera.orthographicSize += Mathf.Log(1 + 1/camera.orthographicSize); 
+        camera.orthographicSize += Mathf.Log(1 + 1/camera.orthographicSize);
+
+        z.leftChild = Nil;
+        z.rightChild = Nil;
+        z.SetColor(Color.red);
+
         NodeScript y = null;
-        NodeScript x = root;
-        while (x != null)
+        NodeScript x = this.root;
+        while (x != Nil)
         {
             y = x;
             x = (z.GetKey() < x.GetKey()) ? x.leftChild : x.rightChild;
@@ -107,10 +163,16 @@ public class RedBlackTree : MonoBehaviour
         else
             y.rightChild = z;
 
-        z.leftChild = null;
-        z.rightChild = null;
-        z.SetColor(Color.red);
-            InsertFixup(z);
+        if (z.parent == null)
+        {
+            z.SetColor(Color.black);
+            warningText.text += "Node " + z.GetKey() + " colored to black.\n";
+            return;
+        }
+        if (z.parent.parent == null)
+            return;
+
+        InsertFixup(z);
         //set root position
     }
     void Delete(NodeScript z)
@@ -118,12 +180,12 @@ public class RedBlackTree : MonoBehaviour
         NodeScript y = z;
         NodeScript x;
         Color yOriginalColor = y.GetColor();
-        if(z.leftChild == null)
+        if(z.leftChild == Nil)
         {
             x = z.rightChild;
             Transplant(z, z.rightChild);
         }
-        else if( z.rightChild == null)
+        else if( z.rightChild == Nil)
         {
             x = z.leftChild;
             Transplant(z, z.leftChild);
@@ -133,14 +195,13 @@ public class RedBlackTree : MonoBehaviour
             y = GetMinimum(z.rightChild);
             yOriginalColor = y.GetColor();
             x = y.rightChild;
-            if (x != null && y.parent == z) //modification here
+            if (y.parent == z)
                 x.parent = y;
             else
             {
                 Transplant(y, y.rightChild);
                 y.rightChild = z.rightChild;
-                if(y.rightChild != null)  //modification here
-                    y.rightChild.parent = y;
+                y.rightChild.parent = y;
             }
 
             Transplant(z, y);
@@ -154,26 +215,139 @@ public class RedBlackTree : MonoBehaviour
 
         Destroy(z.gameObject);
 
-        /*
-                NodeScript y = (z.leftChild == null || z.rightChild == null) ? z : GetSuccessor(z);
-                NodeScript x = y.leftChild != null ? y.leftChild : y.rightChild;
-                if(x!= null)
-                    x.parent = y.parent;
-                if (y.parent == null)
-                    root = x;
-                else if (y == y.parent.leftChild)
-                    y.parent.leftChild = x;
-                else
-                    y.parent.rightChild = z;
-
-                if (y != z)
-                {
-                    z.SetKey(y.GetKey());
-                }
-                if (y.GetColor() == Color.black)
-                    DeleteFixup(x);
-                return y;*/
     }
+    IEnumerator SearchVisualization(int key)
+    {
+        bool found = false;
+
+        //start from root
+        var node = this.root;
+        var originalColor = node.GetColor();
+        node.SetColor(Color.green, smoothSpeed);
+        
+        while (true)
+        {
+            //how we do it
+            /* start color the node to green
+             * advance to next node
+             * pause 0.5s
+             * start color the node to green
+             * pause 0.5s
+             * start color back the prev node
+             * 
+             */
+            yield return new WaitForSeconds(1f);
+            var previousNode = node;
+            //go to next node
+            if (node.GetKey() == key)
+            {
+                warningText.text = key + " found!\n";
+                found = true;
+            }
+
+            if (node.GetKey() > key)
+                node = node.leftChild;
+            else
+                node = node.rightChild;
+            
+
+            previousNode.SetColor(originalColor, smoothSpeed);
+
+            if (node == Nil)
+                break;
+            originalColor = node.GetColor();
+            node.SetColor(Color.green, smoothSpeed);
+            
+        }
+
+        if(found == false)
+        {
+            warningText.text = key + " not found!\n";
+        }
+        isSearching = false;
+        yield return null;
+    }
+    IEnumerator MinVisualization()
+    {
+        //start from root
+        var node = this.root;
+        var originalColor = node.GetColor();
+        node.SetColor(Color.green, smoothSpeed);
+
+        while (true)
+        {
+            //how we do it
+            /* start color the node to green
+             * advance to next node
+             * pause 0.5s
+             * start color the node to green
+             * pause 0.5s
+             * start color back the prev node
+             * 
+             */
+            yield return new WaitForSeconds(1f);
+            var previousNode = node;
+            //go to next node
+
+
+            previousNode.SetColor(originalColor, smoothSpeed);
+            if (node.leftChild == Nil)
+                break;
+
+            node = node.leftChild;
+
+            originalColor = node.GetColor();
+            node.SetColor(Color.green, smoothSpeed);
+ 
+        }
+
+
+        warningText.text = node.GetKey() + " is min key!\n";
+
+        isSearching = false;
+        yield return null;
+    }
+    IEnumerator MaxVisualization()
+    {
+
+        //start from root
+        var node = this.root;
+        var originalColor = node.GetColor();
+        node.SetColor(Color.green, smoothSpeed);
+
+        while (true)
+        {
+            //how we do it
+            /* start color the node to green
+             * advance to next node
+             * pause 0.5s
+             * start color the node to green
+             * pause 0.5s
+             * start color back the prev node
+             * 
+             */
+            yield return new WaitForSeconds(1f);
+            var previousNode = node;
+            //go to next node
+
+
+            previousNode.SetColor(originalColor, smoothSpeed);
+            if (node.rightChild == Nil)
+                break;
+
+            node = node.rightChild;
+
+            originalColor = node.GetColor();
+            node.SetColor(Color.green, smoothSpeed);
+        }
+
+      
+        warningText.text = node.GetKey() + " is max key!\n";
+        
+        isSearching = false;
+        yield return null;
+    }
+
 
     void InsertFixup(NodeScript z)
     {
@@ -181,156 +355,143 @@ public class RedBlackTree : MonoBehaviour
         {
             while (z.parent.GetColor() == Color.red)
             {
-                    var hasGrandParent = z.parent.parent == null ? null : z.parent.parent.leftChild;
-                    if (z.parent == hasGrandParent)
+                if (z.parent == z.parent.parent.leftChild)
+                {
+
+                    NodeScript y = z.parent.parent.rightChild;
+
+                    if (y.GetColor() == Color.red)
                     {
-                        NodeScript y = null;
-                        if (hasGrandParent != null)
-                            y = z.parent.parent.rightChild;
-                       
-                        if (y != null && y.GetColor() == Color.red)
-                        {
-                            z.parent.SetColor(Color.black);
-                            y.SetColor(Color.black);
-                            z.parent.parent.SetColor(Color.red);
-                            z = z.parent.parent;
-                        }
-                        else
-                        {
-                            var compareto = z.parent == null ? null : z.parent.rightChild;
-                            if (z == compareto)
-                            {
-                                z = z.parent;
-                                LeftRotate(z);
-                            }
-                            z.parent.SetColor(Color.black);
-                            z.parent.parent.SetColor(Color.red);
-                            RightRotate(z.parent.parent);
-                        }
+                        z.parent.SetColor(Color.black); warningText.text += "Node " + z.parent.GetKey() + " colored to black.\n";
+                        y.SetColor(Color.black); warningText.text += "Node " + y.GetKey() + " colored to black.\n";
+                        z.parent.parent.SetColor(Color.red); warningText.text += "Node " + z.parent.parent.GetKey() + " colored to red.\n";
+                        z = z.parent.parent;
                     }
                     else
                     {
-                          NodeScript y = null;
-                          if (hasGrandParent != null)
-                              y = z.parent.parent.leftChild;
-                          if (y != null && y.GetColor() == Color.red)
+                        if (z == z.parent.rightChild)
                         {
-                            z.parent.SetColor(Color.black);
-                            y.SetColor(Color.black);
-                            z.parent.parent.SetColor(Color.red);
-                            z = z.parent.parent;
+                            z = z.parent;
+                            LeftRotate(z);
                         }
-                          else
-                        {
-                            var compareto = z.parent == null?null:z.parent.leftChild;
-                            if (z == compareto)
-                            {
-                                z = z.parent;
-                                RightRotate(z);
-                            }
-                            z.parent.SetColor(Color.black);
-
-                            z.parent.parent.SetColor(Color.red);
-                            LeftRotate(z.parent.parent);
-                        }
+                        z.parent.SetColor(Color.black); warningText.text += "Node " + z.parent.GetKey() + " colored to black.\n";
+                        z.parent.parent.SetColor(Color.red); warningText.text += "Node " + z.parent.parent.GetKey() + " colored to red.\n";
+                        RightRotate(z.parent.parent);
                     }
+                }
+                else
+                {
+                    NodeScript y = z.parent.parent.leftChild;
+                    if (y.GetColor() == Color.red)
+                    {
+                        z.parent.SetColor(Color.black); warningText.text += "Node " + z.parent.GetKey() + " colored to black.\n";
+                        y.SetColor(Color.black); warningText.text += "Node " + y.GetKey() + " colored to black.\n";
+                        z.parent.parent.SetColor(Color.red); warningText.text += "Node " + z.parent.parent.GetKey() + " colored to red.\n";
+                        z = z.parent.parent;
+                    }
+                    else
+                    {
+                        if (z == z.parent.leftChild)
+                        {
+                            z = z.parent;
+                            RightRotate(z);
+                        }
+                        z.parent.SetColor(Color.black); warningText.text += "Node " + z.parent.GetKey() + " colored to black.\n";
+
+                        z.parent.parent.SetColor(Color.red); warningText.text += "Node " + z.parent.parent.GetKey() + " colored to red.\n";
+                        LeftRotate(z.parent.parent);
+                    }
+                }
             }
         }
-        catch (System.Exception ex)
-        {
-            var st = new StackTrace(ex, true);
-            // Get the top stack frame
-            var frame = st.GetFrame(0);
-            // Get the line number from the stack frame
-            var line = frame.GetFileLineNumber();
-           // UnityEngine.Debug.Log("[InsertFix]Node: " + z.GetKey() + " -> Exit line: " + line);
+        catch { }
 
-        }
-        root.SetColor(Color.black);
+        if(root.GetColor() != Color.black)
+            warningText.text += "Root (" + root.GetKey() + ") colored to black.\n";
+        root.SetColor(Color.black); 
     }
     void DeleteFixup(NodeScript x)
     {
-        if (x == null)
-            return;
-        while (x != root && (x == null || x.GetColor() == Color.black))
-        {
-            if (x == null || x == x.parent.leftChild)
+            while (x != root && x.GetColor() == Color.black)
             {
-                NodeScript w = x.parent.rightChild;
-                if (w.GetColor() == Color.red)
+                 if (x.parent == null)
+                     break;
+                if (x == x.parent.leftChild)
                 {
-                    w.SetColor(Color.black);
-                    x.parent.SetColor(Color.red);
-                    LeftRotate(x.parent);
-                    w = x.parent.rightChild;
-                }
-                if (w.leftChild.GetColor() == Color.black && w.rightChild.GetColor() == Color.black)
-                {
-                    w.SetColor(Color.red);
-                    if(x!=null)
-                        x = x.parent;
-                }
-                else
-                {
-                    if (w.rightChild.GetColor() == Color.black)
+                    NodeScript w = x.parent.rightChild;
+                    if (w.GetColor() == Color.red)
                     {
-                        w.leftChild.SetColor(Color.black);
-                        w.SetColor(Color.red);
-                        RightRotate(w);
+                        w.SetColor(Color.black);        warningText.text += "Node " + w.GetKey() + " colored to black.\n";
+                        x.parent.SetColor(Color.red);   warningText.text += "Node " + x.parent.GetKey() + " colored to black.\n";
+                        LeftRotate(x.parent);
                         w = x.parent.rightChild;
                     }
-                    w.SetColor(x.parent.GetColor());
-                    x.parent.SetColor(Color.black);
-                    w.rightChild.SetColor(Color.black);
-                    LeftRotate(x.parent);
-                    if(x!=null)
-                    x = root;
-                }
-            }
-            else
-            {
-                NodeScript w = x.parent.leftChild;
-                if (w.GetColor() == Color.red)
-                {
-                    w.SetColor(Color.black);
-                    x.parent.SetColor(Color.red);
-                    RightRotate(x.parent);
-                    w = x.parent.leftChild;
-                }
-                if (w.rightChild.GetColor() == Color.black && w.leftChild.GetColor() == Color.black)
-                {
-                    w.SetColor(Color.red);
-                    x = x.parent;
+                    if (w.leftChild.GetColor() == Color.black && w.rightChild.GetColor() == Color.black)
+                    {
+                        w.SetColor(Color.red);                   warningText.text += "Node " + w.GetKey() + " colored to red.\n";
+                        x = x.parent;
+                    }
+                    else
+                    {
+                        if (w.rightChild.GetColor() == Color.black)
+                        {
+                            w.leftChild.SetColor(Color.black);      warningText.text += "Node " + w.leftChild.GetKey() + " colored to black.\n";
+                            w.SetColor(Color.red);                  warningText.text += "Node " + w.GetKey() + " colored to red.\n";
+                            RightRotate(w);
+                            w = x.parent.rightChild;
+                        }
+                        w.SetColor(x.parent.GetColor());        warningText.text += "Node " + w.GetKey() + " colored to " + x.parent.GetColor().ToString() + ".\n";
+                        x.parent.SetColor(Color.black);          warningText.text += "Node " + x.parent.GetKey() + " colored to black.\n";
+                        w.rightChild.SetColor(Color.black);      warningText.text += "Node " + w.rightChild.GetKey() + " colored to black.\n";
+                        LeftRotate(x.parent);
+                        x = root;
+                    }
                 }
                 else
                 {
-                    if (w.leftChild.GetColor() == Color.black)
+                    NodeScript w = x.parent.leftChild;
+                    if (w.GetColor() == Color.red)
                     {
-                        w.rightChild.SetColor(Color.black);
-                        w.SetColor(Color.red);
-                        LeftRotate(w);
+                        w.SetColor(Color.black);              warningText.text += "Node " + w.GetKey() + " colored to black.\n";
+                        x.parent.SetColor(Color.red);         warningText.text += "Node " + x.parent.GetKey() + " colored to black.\n";
+                        RightRotate(x.parent);
                         w = x.parent.leftChild;
                     }
-                    w.SetColor(x.parent.GetColor());
-                    x.parent.SetColor(Color.black);
-                    w.leftChild.SetColor(Color.black);
-                    RightRotate(x.parent);
-                    x = root;
+                    if (w.rightChild.GetColor() == Color.black && w.leftChild.GetColor() == Color.black)
+                    {
+                        w.SetColor(Color.red);              warningText.text += "Node " + w.GetKey() + " colored to red.\n";
+                        x = x.parent;
+                    }
+                    else
+                    {
+                        if (w.leftChild.GetColor() == Color.black)
+                        {
+                            w.rightChild.SetColor(Color.black);        warningText.text += "Node " + w.rightChild.GetKey() + " colored to black.\n";
+                            w.SetColor(Color.red);                      warningText.text += "Node " + w.GetKey() + " colored to red.\n";
+                            LeftRotate(w);
+                            w = x.parent.leftChild;
+                        }
+                        w.SetColor(x.parent.GetColor());                 warningText.text += "Node " + w.GetKey() + " colored to " + x.parent.GetColor().ToString() + ".\n";
+                        x.parent.SetColor(Color.black);                   warningText.text += "Node " + x.parent.GetKey() + " colored to black.\n";
+                        w.leftChild.SetColor(Color.black);              warningText.text += "Node " + w.leftChild.GetKey() + " colored to black.\n";
+                        RightRotate(x.parent);
+                        x = root;
+                    }
                 }
-            }
 
-            
-        }
-        x.SetColor(Color.black);
+
+            }
+      
+        x.SetColor(Color.black); warningText.text += "Node " + x.GetKey() + " colored to black.\n";
     }
 
     void LeftRotate(NodeScript x)
     {
-       
+        warningText.text += "Node " + x.GetKey() + " rotated to left.\n";
         NodeScript y = x.rightChild;
 
         x.rightChild = y.leftChild;
-        if (y.leftChild != null)
+        if (y.leftChild != Nil)
             y.leftChild.parent = x;
 
         y.parent = x.parent;
@@ -347,10 +508,10 @@ public class RedBlackTree : MonoBehaviour
     }
     void RightRotate(NodeScript y)
     {
-       
-       NodeScript x = y.leftChild;
+        warningText.text += "Node " + y.GetKey() + " rotated to right.\n";
+        NodeScript x = y.leftChild;
        y.leftChild = x.rightChild;
-       if (x.rightChild != null)
+       if (x.rightChild != Nil)
            x.rightChild.parent = y;
 
        x.parent = y.parent;
@@ -367,52 +528,17 @@ public class RedBlackTree : MonoBehaviour
        
     }
 
-    NodeScript GetSuccessor(NodeScript x)
-    {
-        if (x.rightChild != null)
-            return GetMinimum(x.rightChild);
-
-        NodeScript y = x.parent;
-        while (y != null && x == y.rightChild)
-        {
-            x = y;
-            y = y.parent;
-        }
-        return y;
-    }
-    NodeScript GetPredecessor(NodeScript x)
-    {
-        if (x == null) return x;
-
-        if (x.leftChild != null)
-            return GetMaximum(x.leftChild);
-
-        NodeScript y = x.parent;
-        while (y != null && x == y.leftChild)
-        {
-            x = y;
-            y = y.parent;
-        }
-        return y;
-    }
-
     NodeScript GetMinimum(NodeScript x)
     {
-        while (x.leftChild != null)
+        while (x.leftChild != Nil)
             x = x.leftChild;
-        return x;
-    }
-    NodeScript GetMaximum(NodeScript x)
-    {
-        while (x.rightChild != null)
-            x = x.rightChild;
         return x;
     }
 
     NodeScript Search(int k)
     {
         NodeScript node = root;
-        while(node != null)
+        while(node != Nil)
         {
             if (node.GetKey() == k)
                 return node;
@@ -438,10 +564,10 @@ public class RedBlackTree : MonoBehaviour
     {
         int height = 0;
         NodeScript node = root;
-        while (node != null)
+        while (node != Nil)
         {
             node = node.leftChild;
-            if(node == null || node.GetColor() == Color.black)
+            if(node.GetColor() == Color.black)
                 height++;
         }
         return height;
@@ -453,7 +579,7 @@ public class RedBlackTree : MonoBehaviour
             if(child.CompareTag("Node"))
                 GameObject.Destroy(child.gameObject);
         }
-        root = null;
+        root = Nil;
         totalNodes = 0;
         verticalSlider.value = 1f;
         horizontalSlider.value = 10f;
@@ -467,13 +593,14 @@ public class RedBlackTree : MonoBehaviour
     {
         UpdateLocalPositionsOfAllNodes(root);
         UpdateTransformOfAllNodes(root);
+        UpdateTransformOfNill();
         MakeStatistic();
     }
 
     void UpdateLocalPositionsOfAllNodes(NodeScript rt, int deep = 0)
     {
         //on levels
-        if(rt == null) return;
+        if(rt == null || rt == Nil) return;
 
         if (rt == root)
             rt.rbNodeLocalPosition = transform.position;
@@ -484,16 +611,32 @@ public class RedBlackTree : MonoBehaviour
         UpdateLocalPositionsOfAllNodes(rt.leftChild,deep+1);
         UpdateLocalPositionsOfAllNodes(rt.rightChild,deep+1);
     }
+  
     void UpdateTransformOfAllNodes(NodeScript rt)
     {
         //here is applied the smooth transition
-        if (rt == null)
-            return;
+        if (rt == null || rt == Nil) return;
 
         rt.transform.position = Vector3.Lerp(rt.transform.position, rt.rbNodeLocalPosition, Time.deltaTime * smoothSpeed);
         UpdateTransformOfAllNodes(rt.leftChild);
         UpdateTransformOfAllNodes(rt.rightChild);
         ColorLinesOfNode(rt);
+    }
+    void UpdateTransformOfNill()
+    {
+        Nil.transform.localPosition = new Vector3(Nil.transform.localPosition.x, (-8f * (1+Mathf.Log(verticalDistance,2f))) - Mathf.Log(totalNodes + 1) * verticalDistance, Nil.transform.localPosition.z);
+    }
+    public void ShowNILL()
+    {
+        if(showNILL.isOn)
+        {
+            camera.cullingMask = zeroMask;
+        }
+        else
+        {
+            camera.cullingMask = hidNillMask;
+        }
+        //UnityEngine.Debug.Log(camera.cullingMask);
     }
     void MakeStatistic()
     {
@@ -513,13 +656,19 @@ public class RedBlackTree : MonoBehaviour
         int index = 1;
         if (node.leftChild != null)
         {
-            line.SetPosition(index++, node.leftChild.transform.position);
-            line.SetPosition(index++, node.transform.position);
+            if (node.leftChild != Nil || (node.leftChild == Nil && showNILL.isOn))
+            {
+                line.SetPosition(index++, node.leftChild.transform.position);
+                line.SetPosition(index++, node.transform.position);
+            }
         }
         if (node.rightChild != null)
         {
-            line.SetPosition(index++, node.rightChild.transform.position);
-            line.SetPosition(index++, node.transform.position);
+            if (node.rightChild != Nil || (node.rightChild == Nil && showNILL.isOn))
+            {
+                line.SetPosition(index++, node.rightChild.transform.position);
+                line.SetPosition(index++, node.transform.position);
+            }
         }
         for (int i = index; i < 5; i++)
         {
@@ -535,5 +684,9 @@ public class RedBlackTree : MonoBehaviour
     {
         camera.orthographicSize += (verticalSlider.value - verticalDistance) * 5f;
         verticalDistance = verticalSlider.value;
+    }
+    void ResetWarningText()
+    {
+        warningText.text = string.Empty;
     }
 }

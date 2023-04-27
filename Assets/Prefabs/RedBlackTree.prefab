@@ -47,11 +47,16 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   root: {fileID: 0}
   totalNodes: 0
-  distanceBetweenNodes: 10.04
+  horizontalDistance: 10
+  verticalDistance: 1
+  smoothSpeed: 0.5
   NodePrefab: {fileID: 416734031619203592, guid: 18ec0ab235ea07840b64e276041cbc06, type: 3}
   camera: {fileID: 0}
   inputField: {fileID: 0}
   warningText: {fileID: 0}
+  horizontalSlider: {fileID: 0}
+  verticalSlider: {fileID: 0}
+  statistics: {fileID: 0}
 --- !u!1001 &7932130579957553143
 PrefabInstance:
   m_ObjectHideFlags: 0
